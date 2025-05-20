@@ -1,6 +1,7 @@
 import express from 'express';
 import userRoutes from './user.routes.js';
 import fileRoutes from './file.routes.js';
+import authRoutes from './auth.routes.js';
 
 const router = express.Router();
 
@@ -13,6 +14,7 @@ router.get('/health', (req, res) => {
 });
 
 // API routes
+router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/files', fileRoutes);
 

@@ -3,11 +3,12 @@ import cors from 'cors';
 import morgan from 'morgan';
 import helmet from 'helmet';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { sequelize } from './config/database.js';
 import routes from './routes/index.js';
 import { globalErrorHandler } from './utils/error-handler.js';
-
+  
 // Load environment variables
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use(compression());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static('uploads'));

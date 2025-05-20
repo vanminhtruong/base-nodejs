@@ -35,6 +35,27 @@ function generateMigrationFileName(modelName) {
 }
 
 /**
+ * Find the latest migration file for a model
+ */
+function findLatestMigrationFile(modelName) {
+  const files = fs.readdirSync(config.migrationsDir);
+  const modelFiles = files.filter(file => file.toLowerCase().includes(`-${modelName.toLowerCase()}.js`));
+  
+  if (modelFiles.length === 0) {
+    return null;
+  }
+  
+  // Sort by timestamp (descending)
+  modelFiles.sort((a, b) => {
+    const timestampA = a.split('-')[0];
+    const timestampB = b.split('-')[0];
+    return timestampB.localeCompare(timestampA);
+  });
+  
+  return modelFiles[0];
+}
+
+/**
  * Create migration file for a model
  */
 async function createMigrationForModel(modelName) {
@@ -283,13 +304,37 @@ ${downOperations.join('\n\n')}
     
     // Create migrations directory if it doesn't exist
     if (!fs.existsSync(config.migrationsDir)) {
+      console.log(`Creating migrations directory: ${config.migrationsDir}`);
       fs.mkdirSync(config.migrationsDir, { recursive: true });
+    } else {
+      console.log(`Migrations directory exists: ${config.migrationsDir}`);
     }
     
-    // Write migration file
-    const migrationFileName = generateMigrationFileName(`${migrationType}-${modelName}`);
-    const migrationPath = path.join(config.migrationsDir, migrationFileName);
-    fs.writeFileSync(migrationPath, migrationContent);
+    // Check if there's an existing migration file for this model
+    const existingMigrationFile = findLatestMigrationFile(modelName);
+    let migrationFileName;
+    let migrationPath;
+    
+    if (existingMigrationFile && existingMigrationFile.includes(`-${migrationType}-${modelName.toLowerCase()}.js`)) {
+      // Update existing migration file
+      migrationFileName = existingMigrationFile;
+      migrationPath = path.join(config.migrationsDir, migrationFileName);
+      console.log(`Updating existing migration file: ${migrationPath}`);
+    } else {
+      // Create new migration file
+      migrationFileName = generateMigrationFileName(`${migrationType}-${modelName}`);
+      migrationPath = path.join(config.migrationsDir, migrationFileName);
+      console.log(`Creating new migration file: ${migrationPath}`);
+    }
+    
+    // Write migration content to file
+    try {
+      fs.writeFileSync(migrationPath, migrationContent);
+      console.log(`Successfully wrote migration content to file: ${migrationPath}`);
+    } catch (error) {
+      console.error(`Error writing migration file: ${error.message}`);
+      throw error;
+    }
     
     console.log(`Migration file created: ${migrationFileName}`);
     
@@ -299,23 +344,22 @@ ${downOperations.join('\n\n')}
     // Create SequelizeMeta table if it doesn't exist
     await sequelize.query(`CREATE TABLE IF NOT EXISTS SequelizeMeta (name VARCHAR(255) NOT NULL UNIQUE PRIMARY KEY);`);
     
-    // Check if migration is already in SequelizeMeta
-    const [results] = await sequelize.query(`SELECT name FROM SequelizeMeta WHERE name = '${migrationFileName}';`);
-    
-    if (results.length === 0) {
-      // Import the migration module
-      const migrationModule = await import(`file://${migrationPath}`);
-      
-      // Execute up migration
-      await migrationModule.up(sequelize.getQueryInterface(), Sequelize);
-      
-      // Record migration in SequelizeMeta
-      await sequelize.query(`INSERT INTO SequelizeMeta (name) VALUES ('${migrationFileName}');`);
-      
-      console.log(`Migration ${migrationFileName} applied successfully.`);
-    } else {
-      console.log(`Migration ${migrationFileName} already applied.`);
+    // If we're updating an existing migration file, we need to remove it from SequelizeMeta first
+    if (existingMigrationFile) {
+      await sequelize.query(`DELETE FROM SequelizeMeta WHERE name = '${migrationFileName}';`);
+      console.log(`Removed existing migration from SequelizeMeta: ${migrationFileName}`);
     }
+    
+    // Import the migration module
+    const migrationModule = await import(`file://${migrationPath}?update=${Date.now()}`);
+    
+    // Execute up migration
+    await migrationModule.up(sequelize.getQueryInterface(), Sequelize);
+    
+    // Record migration in SequelizeMeta
+    await sequelize.query(`INSERT INTO SequelizeMeta (name) VALUES ('${migrationFileName}');`);
+    
+    console.log(`Migration ${migrationFileName} applied successfully.`);
     
     // Close database connection
     await sequelize.close();
@@ -327,22 +371,28 @@ ${downOperations.join('\n\n')}
   }
 }
 
-// Get model name from command line arguments
-const modelName = process.argv[2];
+// Export the createMigrationForModel function
+export { createMigrationForModel };
 
-if (!modelName) {
-  console.error('Please provide a model name');
-  process.exit(1);
-}
+// Check if this file is being run directly
+if (import.meta.url === `file://${fileURLToPath(import.meta.url)}`) {
+  // Get model name from command line arguments
+  const modelName = process.argv[2];
 
-// Run the migration
-console.log(`Generating and applying migration for model: ${modelName}\n`);
-
-createMigrationForModel(modelName).then(result => {
-  if (result) {
-    console.log('\nMigration completed successfully!');
-  } else {
-    console.error('\nMigration failed or no changes detected.');
+  if (!modelName) {
+    console.error('Please provide a model name');
     process.exit(1);
   }
-});
+  
+  // Run the migration
+  console.log(`Generating and applying migration for model: ${modelName}\n`);
+
+  createMigrationForModel(modelName).then(result => {
+    if (result) {
+      console.log('\nMigration completed successfully!');
+    } else {
+      console.error('\nMigration failed or no changes detected.');
+      process.exit(1);
+    }
+  });
+}

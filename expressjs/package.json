@@ -11,7 +11,8 @@
     "migrate": "sequelize-cli --config src/config/sequelize-cli.config.cjs db:migrate",
     "migrate:undo": "sequelize-cli --config src/config/sequelize-cli.config.cjs db:migrate:undo",
     "migrate:undo:all": "sequelize-cli --config src/config/sequelize-cli.config.cjs db:migrate:undo:all",
-    "m": "node --experimental-specifier-resolution=node --experimental-modules src/utils/migrate.js"
+    "m": "node --experimental-specifier-resolution=node --experimental-modules src/utils/migrate.js",
+    "migrate-all": "node --experimental-specifier-resolution=node --experimental-modules src/utils/migrate-all.js"
   },
   "nodemonConfig": {
     "execMap": {
@@ -30,7 +31,10 @@
     "multer": "^1.4.5-lts.1",
     "uuid": "^9.0.1",
     "sequelize-cli": "^6.6.1",
-    "sequelize-auto-migrations-v2": "^1.2.1"
+    "sequelize-auto-migrations-v2": "^1.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

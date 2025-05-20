@@ -32,6 +32,23 @@ User.init({
       notEmpty: true
     }
   },
+  roles: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'user',
+    get() {
+      const rawValue = this.getDataValue('roles');
+      return rawValue ? rawValue.split(',') : ['user'];
+    },
+    set(value) {
+      const rolesArray = Array.isArray(value) ? value : [value];
+      this.setDataValue('roles', rolesArray.join(','));
+    }
+  },
+  refreshToken: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
@@ -48,7 +65,21 @@ User.init({
   sequelize,
   modelName: 'User',
   tableName: 'users',
-  timestamps: true
+  timestamps: true,
+  defaultScope: {
+    attributes: { exclude: ['password', 'refreshToken'] }
+  },
+  scopes: {
+    withPassword: {
+      attributes: { include: ['password'] }
+    },
+    withRefreshToken: {
+      attributes: { include: ['refreshToken'] }
+    },
+    withAll: {
+      attributes: { include: ['password', 'refreshToken'] }
+    }
+  }
 });
 
 export default User;
